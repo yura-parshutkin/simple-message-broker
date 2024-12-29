@@ -1,0 +1,14 @@
+# ide project files
+/.idea
+
+# OS files
+/.DS_Store
+
+# generated files
+/**/*.gen.go
+/*.out
+
+# testing artefacts
+/coverage.out
+/coverage.out.tmp
+/coverage.xml
