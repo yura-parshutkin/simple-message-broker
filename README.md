@@ -45,3 +45,21 @@ Run project:
 make
 ./application
 ```
+
+Code structure:
+
+The main project code is located in pkg/mule. 
+The code for working with the broker and the server providing the API is separated. 
+We use only one implementation for the server (HTTP protocol), but there could be any other.
+
+The broker contains several instances of QueueWorker (one instance per queue). 
+For guaranteed message delivery, a SyncQueue is used, from which messages are removed only after receipt by all subscribers.
+
+Schema:
+```mermaid
+flowchart TD
+    A(Server) --> B(Broker)
+    B-->|queue 1| C(Queue Worker);
+    B-->|queue 2| D(QueueWorker);
+    B-->|queue 3| E(QueueWorker);
+```
