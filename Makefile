@@ -1,3 +1,7 @@
+build: fmt lint unit coverage
+	go build -o ./application ./
+.PHONY: run
+
 prepare:
 	go mod download -x
 	go generate $(shell go list ./... | grep -v ./.go/)
@@ -17,7 +21,6 @@ unit: prepare
 coverage:
 	go test -short -race -coverprofile coverage.out.tmp ./...
 	cat coverage.out.tmp | grep -v ".gen.go" > coverage.out
-	go tool cover -html ./coverage.out
 .PHONY: coverage
 
 lint: prepare

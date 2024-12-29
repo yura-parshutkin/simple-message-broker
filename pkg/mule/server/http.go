@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"io"
+	"log"
 	"net/http"
 )
 
@@ -34,13 +35,15 @@ func NewHttpServer(
 }
 
 func (a *HttpServer) Run() error {
+	log.Printf("server is running on %s", a.srv.Addr)
 	if err := a.srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("queue stopped listening: %qw", err)
+		return fmt.Errorf("queue stopped listening: %w", err)
 	}
 	return nil
 }
 
 func (a *HttpServer) Stop(ctx context.Context) error {
+	log.Println("server is shutting down...")
 	return a.srv.Shutdown(ctx)
 }
 

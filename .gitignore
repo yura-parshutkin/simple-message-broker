@@ -12,3 +12,6 @@
 /coverage.out
 /coverage.out.tmp
 /coverage.xml
+
+# binary files
+/application

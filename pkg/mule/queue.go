@@ -25,20 +25,22 @@ func (q *SyncQueue) Get() []byte {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
-	if len(q.nodes) == 0 {
+	for len(q.nodes) == 0 {
 		q.cond.Wait()
 	}
 	return q.nodes[0]
 }
 
 func (q *SyncQueue) Take() []byte {
-	node := q.Get()
-
 	q.cond.L.Lock()
-	q.nodes = q.nodes[1:]
-	q.cond.L.Unlock()
+	defer q.cond.L.Unlock()
 
-	return node
+	for len(q.nodes) == 0 {
+		q.cond.Wait()
+	}
+	n := q.nodes[0]
+	q.nodes = q.nodes[1:]
+	return n
 }
 
 func (q *SyncQueue) Add(node []byte) error {
