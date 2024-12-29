@@ -1,0 +1,10 @@
+### Add new message
+# curl -X POST -v http://localhost:8090/v1/queues/test/messages
+POST http://localhost:8090/v1/queues/test/messages
+
+your body can be here
+
+### Add new subscription
+# curl -X POST -v http://localhost:8090/v1/queues/test/subscriptions
+POST http://localhost:8090/v1/queues/test/subscriptions
+
