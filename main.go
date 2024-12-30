@@ -20,9 +20,9 @@ func main() {
 	}})
 	go func() {
 		defer stop()
-		err := srv.Run()
+		err := srv.Start()
 		if err != nil {
-			log.Println("server run err:", err)
+			log.Println("server start err:", err)
 			return
 		}
 	}()

@@ -12,7 +12,8 @@ import (
 )
 
 type HttpServer struct {
-	srv *http.Server
+	srv    *http.Server
+	broker *mule.Broker
 }
 
 func NewHttpServer(
@@ -20,8 +21,6 @@ func NewHttpServer(
 	config mule.Config,
 ) mule.Server {
 	broker := mule.NewBroker(config)
-	broker.Run()
-
 	ro := mux.NewRouter()
 	ro.Methods("POST").Path("/v1/queues/{queue}/messages").Handler(NewAddMessageHandler(broker))
 	ro.Methods("POST").Path("/v1/queues/{queue}/subscriptions").Handler(NewAddSubscriptionHandler(broker))
@@ -30,20 +29,23 @@ func NewHttpServer(
 		Handler: ro,
 	}
 	return &HttpServer{
-		srv: srv,
+		srv:    srv,
+		broker: broker,
 	}
 }
 
-func (a *HttpServer) Run() error {
+func (a *HttpServer) Start() error {
 	log.Printf("server is running on %s", a.srv.Addr)
+	a.broker.Start()
 	if err := a.srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("queue stopped listening: %w", err)
+		return fmt.Errorf("server stopped listening: %w", err)
 	}
 	return nil
 }
 
 func (a *HttpServer) Stop(ctx context.Context) error {
 	log.Println("server is shutting down...")
+	a.broker.Stop()
 	return a.srv.Shutdown(ctx)
 }
 

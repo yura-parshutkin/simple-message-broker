@@ -13,7 +13,7 @@ func TestBrokerHappyPass(t *testing.T) {
 		Size:      10,
 		SubsSize:  10,
 	}})
-	br.Run()
+	br.Start()
 	sb, err := br.Subscribe(ctx, "test")
 	if err != nil {
 		t.Errorf("error subscribe not expected %v", err)
@@ -35,7 +35,7 @@ func TestBrokerWitSeveralSubs(t *testing.T) {
 		Size:      10,
 		SubsSize:  10,
 	}})
-	br.Run()
+	br.Start()
 	subs := make([]<-chan []byte, 0, 3)
 	for i := 0; i < 3; i++ {
 		sub, err := br.Subscribe(ctx, "test")
@@ -63,7 +63,7 @@ func TestBrokerQueueMaxLimitReached(t *testing.T) {
 		Size:      1,
 		SubsSize:  10,
 	}})
-	br.Run()
+	br.Start()
 	var err error
 	err = br.AddMessage(ctx, "test", []byte("hello world"))
 	if err != nil {
@@ -82,7 +82,7 @@ func TestBrokerSubsMaxLimitReached(t *testing.T) {
 		Size:      1,
 		SubsSize:  1,
 	}})
-	br.Run()
+	br.Start()
 	var err error
 	_, err = br.Subscribe(ctx, "test")
 	if err != nil {
@@ -101,7 +101,7 @@ func TestBrokerQueueNotFound(t *testing.T) {
 		Size:      10,
 		SubsSize:  10,
 	}})
-	br.Run()
+	br.Start()
 	var err error
 	_, err = br.Subscribe(ctx, "test1")
 	if !errors.Is(err, ErrQueueNotFound) {
@@ -120,7 +120,7 @@ func TestBrokerSendToNewSub(t *testing.T) {
 		Size:      10,
 		SubsSize:  10,
 	}})
-	br.Run()
+	br.Start()
 
 	sb1, _ := br.Subscribe(ctx, "test")
 	_ = br.AddMessage(ctx, "test", []byte("hello world 1"))
@@ -130,6 +130,7 @@ func TestBrokerSendToNewSub(t *testing.T) {
 
 	sb2, _ := br.Subscribe(ctx, "test")
 	_ = br.AddMessage(ctx, "test", []byte("hello world 2"))
+
 	if string(<-sb1) != "hello world 2" {
 		t.Errorf("message %s expected", "hello world 2")
 	}
@@ -152,7 +153,7 @@ func TestBrokerSendDifferenceQueue(t *testing.T) {
 			SubsSize:  10,
 		},
 	})
-	br.Run()
+	br.Start()
 
 	sb1, _ := br.Subscribe(ctx, "test1")
 	sb2, _ := br.Subscribe(ctx, "test2")

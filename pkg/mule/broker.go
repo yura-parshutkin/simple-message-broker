@@ -39,16 +39,24 @@ func (b *Broker) Subscribe(ctx context.Context, queue string) (<-chan []byte, er
 	return w.Subscribe(ctx)
 }
 
-func (b *Broker) Run() {
+func (b *Broker) Start() {
 	for _, v := range b.qw {
 		go v.Run()
 	}
 }
 
+func (b *Broker) Stop() {
+	for _, v := range b.qw {
+		v.Stop()
+	}
+}
+
 type QueueWorker struct {
-	subs  []chan []byte
-	queue *SyncQueue
-	cond  *sync.Cond
+	subs    []chan []byte
+	queue   *SyncQueue
+	hasSubs *sync.Cond
+	// use this channel to stop worker
+	quit chan struct{}
 }
 
 func NewQueueWorker(
@@ -56,17 +64,19 @@ func NewQueueWorker(
 	queue *SyncQueue,
 ) *QueueWorker {
 	return &QueueWorker{
-		subs:  subs,
-		queue: queue,
-		cond:  sync.NewCond(&sync.Mutex{}),
+		subs:    subs,
+		queue:   queue,
+		hasSubs: sync.NewCond(&sync.Mutex{}),
+		quit:    make(chan struct{}),
 	}
 }
 
 func (b *QueueWorker) Run() {
 	for {
 		msg := b.queue.Get()
-		b.readMessage(msg)
-		b.queue.Take()
+		if b.handleMessage(msg) {
+			b.queue.Take()
+		}
 	}
 }
 
@@ -75,27 +85,39 @@ func (b *QueueWorker) AddMessage(_ context.Context, msg []byte) error {
 }
 
 func (b *QueueWorker) Subscribe(_ context.Context) (<-chan []byte, error) {
-	b.cond.L.Lock()
-	defer b.cond.L.Unlock()
+	b.hasSubs.L.Lock()
+	defer b.hasSubs.L.Unlock()
 
 	if len(b.subs) == cap(b.subs) {
 		return nil, ErrSubsMaxLimit
 	}
 	sb := make(chan []byte)
 	b.subs = append(b.subs, sb)
-	b.cond.Signal()
+	b.hasSubs.Signal()
 	return sb, nil
 }
 
-func (b *QueueWorker) readMessage(q []byte) {
-	b.cond.L.Lock()
-	defer b.cond.L.Unlock()
+func (b *QueueWorker) handleMessage(q []byte) bool {
+	b.hasSubs.L.Lock()
+	defer b.hasSubs.L.Unlock()
 
 	msg := q
 	for len(b.subs) == 0 {
-		b.cond.Wait()
+		select {
+		case <-b.quit:
+			b.hasSubs.L.Unlock()
+			return false
+		default:
+			b.hasSubs.Wait()
+		}
 	}
 	for _, sub := range b.subs {
 		sub <- msg
 	}
+	return true
+}
+
+func (b *QueueWorker) Stop() {
+	close(b.quit)
+	b.hasSubs.Broadcast()
 }

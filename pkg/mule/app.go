@@ -13,6 +13,6 @@ type ConfigItem struct {
 type Config []ConfigItem
 
 type Server interface {
-	Run() error
+	Start() error
 	Stop(ctx context.Context) error
 }
