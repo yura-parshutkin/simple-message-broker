@@ -16,7 +16,7 @@ func TestQueue(t *testing.T) {
 		if err != nil {
 			t.Errorf("Add failed: %v", err)
 		}
-		takenNode := q.Take()
+		takenNode, _ := q.Take()
 		if string(takenNode) != string(node) {
 			t.Errorf("Taken node is incorrect: got %s, want %s", string(takenNode), string(node))
 		}
@@ -46,7 +46,7 @@ func TestQueue(t *testing.T) {
 
 		go func() {
 			defer wg.Done()
-			gotNode = q.Get()
+			gotNode, _ = q.Get()
 		}()
 
 		time.Sleep(100 * time.Millisecond) // Give the goroutine time to start waiting
@@ -79,7 +79,7 @@ func TestQueue(t *testing.T) {
 		}
 
 		for _, expectedNode := range nodes {
-			takenNode := q.Take()
+			takenNode, _ := q.Take()
 			if string(takenNode) != string(expectedNode) {
 				t.Errorf("Taken node is incorrect: got %s, want %s", string(takenNode), string(expectedNode))
 			}
@@ -114,5 +114,28 @@ func TestQueue(t *testing.T) {
 		if len(q.nodes) != 0 {
 			t.Errorf("Queue should be empty after concurrent operations, but has %d elements", len(q.nodes))
 		}
+	})
+
+	t.Run("Check close method, with no deadlock", func(t *testing.T) {
+		q := NewQueue(10)
+		_ = q.Add([]byte("test1"))
+		_ = q.Add([]byte("test2"))
+		_ = q.Add([]byte("test3"))
+		_ = q.Add([]byte("test4"))
+
+		wg := sync.WaitGroup{}
+		wg.Add(4)
+		go func() {
+			for {
+				_, ok := q.Get()
+				if !ok {
+					break
+				}
+				q.Remove()
+				wg.Done()
+			}
+		}()
+		wg.Wait()
+		q.Close()
 	})
 }

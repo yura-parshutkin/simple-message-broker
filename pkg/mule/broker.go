@@ -73,10 +73,14 @@ func NewQueueWorker(
 
 func (b *QueueWorker) Run() {
 	for {
-		msg := b.queue.Get()
-		if b.handleMessage(msg) {
-			b.queue.Take()
+		msg, ok := b.queue.Get()
+		if !ok {
+			break
 		}
+		if !b.handleMessage(msg) {
+			break
+		}
+		b.queue.Remove()
 	}
 }
 
@@ -118,6 +122,10 @@ func (b *QueueWorker) handleMessage(q []byte) bool {
 }
 
 func (b *QueueWorker) Stop() {
-	close(b.quit)
+	b.queue.Close()
 	b.hasSubs.Broadcast()
+	for _, sub := range b.subs {
+		close(sub)
+	}
+	close(b.quit)
 }

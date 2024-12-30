@@ -59,7 +59,7 @@ Schema:
 ```mermaid
 flowchart TD
     A(Server) --> B(Broker)
-    B-->|queue 1| C(Queue Worker);
-    B-->|queue 2| D(QueueWorker);
-    B-->|queue 3| E(QueueWorker);
+    B-->|some-queue-1| C(Queue Worker)
+    B-->|some-queue-2| D(QueueWorker)
+    B-->|some-queue-3| E(QueueWorker)
 ```
