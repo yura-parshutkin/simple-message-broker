@@ -16,9 +16,7 @@ type Broker struct {
 func NewBroker(config Config) *Broker {
 	w := make(map[string]*QueueWorker, len(config))
 	for _, c := range config {
-		subs := make([]chan []byte, 0, c.SubsSize)
-		queue := NewQueue(c.Size)
-		w[c.QueueName] = NewQueueWorker(subs, queue)
+		w[c.QueueName] = NewQueueWorker(c.Size, c.SubsSize)
 	}
 	return &Broker{qw: w}
 }
@@ -51,23 +49,28 @@ func (b *Broker) Stop() {
 	}
 }
 
+type Subscriber struct {
+	out chan []byte
+	ctx context.Context
+}
+
 type QueueWorker struct {
-	subs    []chan []byte
 	queue   *SyncQueue
 	hasSubs *sync.Cond
 	// use this channel to stop worker
 	quit chan struct{}
+	subs []Subscriber
 }
 
 func NewQueueWorker(
-	subs []chan []byte,
-	queue *SyncQueue,
+	size int,
+	subsSize int,
 ) *QueueWorker {
 	return &QueueWorker{
-		subs:    subs,
-		queue:   queue,
+		queue:   NewQueue(size),
 		hasSubs: sync.NewCond(&sync.Mutex{}),
 		quit:    make(chan struct{}),
+		subs:    make([]Subscriber, 0, subsSize),
 	}
 }
 
@@ -88,17 +91,17 @@ func (b *QueueWorker) AddMessage(_ context.Context, msg []byte) error {
 	return b.queue.Add(msg)
 }
 
-func (b *QueueWorker) Subscribe(_ context.Context) (<-chan []byte, error) {
+func (b *QueueWorker) Subscribe(ctx context.Context) (<-chan []byte, error) {
 	b.hasSubs.L.Lock()
 	defer b.hasSubs.L.Unlock()
 
 	if len(b.subs) == cap(b.subs) {
 		return nil, ErrSubsMaxLimit
 	}
-	sb := make(chan []byte)
+	sb := Subscriber{out: make(chan []byte), ctx: ctx}
 	b.subs = append(b.subs, sb)
 	b.hasSubs.Signal()
-	return sb, nil
+	return sb.out, nil
 }
 
 func (b *QueueWorker) handleMessage(q []byte) bool {
@@ -116,16 +119,13 @@ func (b *QueueWorker) handleMessage(q []byte) bool {
 		}
 	}
 	for _, sub := range b.subs {
-		sub <- msg
+		sub.out <- msg
 	}
 	return true
 }
 
 func (b *QueueWorker) Stop() {
+	close(b.quit)
 	b.queue.Close()
 	b.hasSubs.Broadcast()
-	for _, sub := range b.subs {
-		close(sub)
-	}
-	close(b.quit)
 }
