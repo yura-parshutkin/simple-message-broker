@@ -54,12 +54,20 @@ type Subscriber struct {
 	ctx context.Context
 }
 
+type Subscribers []Subscriber
+
+func (s Subscribers) Close() {
+	for i := range s {
+		close(s[i].out)
+	}
+}
+
 type QueueWorker struct {
 	queue   *SyncQueue
 	hasSubs *sync.Cond
 	// use this channel to stop worker
 	quit chan struct{}
-	subs []Subscriber
+	subs Subscribers
 }
 
 func NewQueueWorker(
@@ -75,6 +83,7 @@ func NewQueueWorker(
 }
 
 func (b *QueueWorker) Run() {
+	defer b.closeResources()
 	for {
 		msg, ok := b.queue.Get()
 		if !ok {
@@ -104,6 +113,12 @@ func (b *QueueWorker) Subscribe(ctx context.Context) (<-chan []byte, error) {
 	return sb.out, nil
 }
 
+func (b *QueueWorker) Stop() {
+	close(b.quit)
+	b.queue.Close()
+	b.hasSubs.Broadcast()
+}
+
 func (b *QueueWorker) handleMessage(q []byte) bool {
 	b.hasSubs.L.Lock()
 	defer b.hasSubs.L.Unlock()
@@ -124,8 +139,9 @@ func (b *QueueWorker) handleMessage(q []byte) bool {
 	return true
 }
 
-func (b *QueueWorker) Stop() {
-	close(b.quit)
-	b.queue.Close()
-	b.hasSubs.Broadcast()
+func (b *QueueWorker) closeResources() {
+	b.hasSubs.L.Lock()
+	defer b.hasSubs.L.Unlock()
+
+	b.subs.Close()
 }
